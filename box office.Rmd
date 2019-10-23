@@ -1,0 +1,225 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+** Début du notebook **
+
+Initialisation
+
+```{r}
+###############Initialisation 
+rm(list=objects())
+###############packages
+library(dygraphs)
+library(xts)
+library(tidyverse)
+library(car)
+library(dummies)
+
+dataTrain <- read_delim("/media/matthieu/disque dur Matthieu/Matthieu/Mes Documents/R/Projet M2 StatML/tmdb-box-office-prediction/train.csv", col_names =TRUE, delim=',')
+dataTest <- read_delim("/media/matthieu/disque dur Matthieu/Matthieu/Mes Documents/R/Projet M2 StatML/tmdb-box-office-prediction/train.csv", col_names =TRUE, delim=',')
+summary(dataTrain)
+```
+
+#       ########################################
+#       #  Partie I : Preparation des données  #
+#       ########################################
+
+
+I - A quoi ressemblent nos données et que peut-on utiliser ?
+============================================================
+  1) Quelles données a-t-on ?
+  ---------------------------
+  
+id
+belongs_to_collection : nom de la série dans laquelle s'inscrit le film (ex : James Bond), vide s'il n'y a rien
+budget
+genres
+homepage : lien internet parfois, vide sinon
+imdb_id : unique values (donc un autre moyen d'id)
+original_language
+original_title
+overview : bref résumé
+popularity : (note donnée de 0 à 300 ??? où ??? TMDB ça marche ???)
+poster_path : noms de fichiers .jpg
+production_companies : (parfois vide)
+production countries : (parfois vide)
+release_date : date de sortie
+runtime : durée du film
+spoken_languages
+status : 4 "Rumored", le reste est "Released"
+tagline : vide ou 1 phrase pour parler du film
+title
+keywords
+cast : (acteurs + roles...)
+crew : (réals...)
+revenue
+
+
+
+
+  2) Quelles données peuvent être utiles les paramètres qui peuvent jouer (a priori) ?
+  ------------------------------------------------------------------------------------
+  
+          utile           |        sais pas          |          inutile
+---------------------------------------------------------------------------------
+  belongs_to_collection   |  original_language       |   id
+  budget                  |  original_title          |   homepage
+  genres                  |  status                  |   imdb_id
+  popularity              |  title                   |   overview
+  production_companies    |                          |   poster_path
+  production_countries    |                          |   tagline
+  release_date            |                          |
+  runtime                 |                          |
+  spoken_languages        |                          |
+  keywords                |                          |
+  cast                    |                          |
+  crew                    |                          |
+---------------------------------------------------------------------------------
+
+but deviner : revenue
+
+
+
+
+  3) Le problème c'est que toutes les données "utiles" ne sont pas des nombres
+  ----------------------------------------------------------------------------
+
+données sous forme de nombres :
+------------------------------
+budget
+popularity
+runtime
+
+données pas sous forme de nombres :
+----------------------------------
+release_date
+belongs_to_collection
+genres
+production_companies
+production_countries
+spoken_languages
+keywords
+cast
+crew
+
+ESSAYONS DE CONVERTIR CERAINES DONNEES EN DONNEES CHIFFREES (en ajoutant des colonnes)
+
+1 - Commençons par belongs_to_collection
+
+```{r}
+###############Conversion en données chiffrées
+dataTrain$collectionName <- str_extract(dataTrain$belongs_to_collection, 
+                                        pattern = "(?<=name\\'\\:\\s{1}\\').+(?=\\'\\,\\s{1}\\'poster)")  #inspiré du notebook, sert surtout à avoir une colonne plus jolie
+head(dataTrain$collectionName)
+sum(!is.na(dataTrain$collectionName))
+dim(dataTrain[1:3000,] %>%
+   group_by(collectionName) %>%
+   summarise(movie_count = n()) %>%
+   arrange(desc(movie_count)) %>%
+   filter(!is.na(collectionName)))    #ne sert qu'a voir si on a bien e bon nombre de colonnes
+
+#creation of a dummy matrix
+res <- dummy(dataTrain$collectionName, sep=".")   #création de la matrice dummy (un colonne par collection on met 1 si le film appartient à cette collection, 0 sinon)
+dim(res)                                          #on a une matrice avec un colonne de trop
+colnames(res)[ncol(res)]                          #la dernière colonne c'est NA, donc c'est pas grave/elle est inutile, on la virera en temps voulu!!
+```
+
+2 - Faisons ensuite "genres"
+
+```{r}
+###############Conversion en données chiffrées
+genres_matching_point <- "Comedy|Horror|Action|Drama|Documentary|Science Fiction|       #inspiré du notbook sur internet
+              Crime|Fantasy|Thriller|Animation|Adventure|Mystery|War|Romance|Music|
+              Family|Western|History|TV Movie|Foreign"
+
+#dataTrain$genresName <- str_extract(dataTrain$genres, genres_matching_point)            #le pb c'est qu'on ne garde que le premier genres, parfois classé par ordre alphabétique ??
+dataTrain$genresName <- str_extract_all(dataTrain$genres, genres_matching_point)        #c'est pour ça que je l'ai changé en extract all, et la ca fait ce que je veux
+head(dataTrain$genresName)
+
+
+sum(is.na(dataTrain$genresName))
+
+#creation of a dummy matrix
+res <- dummy(dataTrain$genresName, sep=".")   #création de la matrice dummy (un colonne par collection on met 1 si le film appartient à cette collection, 0 sinon)
+dim(res)                                          #on a une matrice avec un colonne de trop
+head(res)
+colnames(res)[ncol(res)]                          #la dernière colonne c'est NA, donc c'est pas grave/elle est inutile, on la virera en temps voulu!!
+```
+
+
+** Partie II : Test avec une régression linéaire
+
+** Partie III :
+
+
+** Rappels des méthodes d'apprentissage citées au premier cours :
+
+Méthodes d’apprentissage statistique
+
+    régression linéaire & sélection de variable (ridge, lasso, elastic net, slope…)
+    modèles additifs (GAM), projection poursuit
+    arbres de régression (CART)
+    random forest
+    gradient boosting
+    time series (exponential smoothing, SARIMA)
+    online expert aggregation
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
