@@ -148,6 +148,48 @@ head(res)
 colnames(res)[ncol(res)]                          #la dernière colonne c'est NA, donc c'est pas grave/elle est inutile, on la virera en temps voulu!!
 ```
 
+```{r}
+###############Conversion en données chiffrées
+genres_matching_point <- "Comedy|Horror|Action|Drama|Documentary|Science Fiction|Crime|Fantasy|Thriller|Animation|Adventure|Mystery|War|Romance|Music|Family|Western|History|TV Movie|Foreign"                 #inspiré du notbook sur internet
+
+#dataTrain$genresName <- str_extract(dataTrain$genres, genres_matching_point)            #le pb c'est qu'on ne garde que le premier genres, parfois classé par ordre alphabétique ??
+dataTrain$genresName <- str_extract_all(dataTrain$genres, genres_matching_point, simplify = TRUE)        #c'est pour ça que je l'ai changé en extract all, et la ca fait ce que je veux
+head(dataTrain$genresName)
+
+
+#sum(is.na(dataTrain$genresName))
+#typeof(dataTrain$genresName[2])
+#length(dataTrain$genresName[1])
+#length(dataTrain$genresName[2])
+#length(dataTrain$genresName[3])
+#dataTrain$genresName[1,]
+#"Drama" %in% dataTrain$genresName[1,]
+dataTrain$genresName[2,]
+"Drama" %in% dataTrain$genresName[2,]
+#dataTrain$genresName[3,]
+#"Drama" %in% dataTrain$genresName[3,]
+
+
+#creation of a dummy matrix
+test <- matrix(0, ncol = 20, nrow = 3000)
+genres_matching_point <- strsplit(genres_matching_point, "|", fixed= TRUE)
+for (i in 1:length(genres_matching_point)) {
+  print(genres_matching_point[i])
+  partial_column <- vector("numeric", length(dataTrain$id))
+  for (j in (1:length(dataTrain$id))) {
+    if (genres_matching_point[i] %in% dataTrain$genresName[j,]) {
+      partial_column[,j] <- 1
+    }
+  }
+  test[i] <- partial_column
+}
+
+head(test)
+#res <- dummy(dataTrain$genresName, sep=".")   #création de la matrice dummy (un colonne par collection on met 1 si le film appartient à cette collection, 0 sinon)
+#dim(res)                                          #on a une matrice avec un colonne de trop
+#head(res)
+#colnames(res)[ncol(res)]                          #la dernière colonne c'est NA, donc c'est pas grave/elle est inutile, on la virera en temps voulu!!
+```
 
 ** Partie II : Test avec une régression linéaire
 
