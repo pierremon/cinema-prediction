@@ -62,21 +62,21 @@ revenue
   2) Quelles données peuvent être utiles les paramètres qui peuvent jouer (a priori) ?
   ------------------------------------------------------------------------------------
   
-          utile           |        sais pas          |          inutile
----------------------------------------------------------------------------------
-  belongs_to_collection   |  original_language       |   id
-  budget                  |  original_title          |   homepage
-  genres                  |  status                  |   imdb_id
-  popularity              |  title                   |   overview
-  production_companies    |                          |   poster_path
-  production_countries    |                          |   tagline
-  release_date            |                          |
-  runtime                 |                          |
-  spoken_languages        |                          |
-  keywords                |                          |
-  cast                    |                          |
-  crew                    |                          |
----------------------------------------------------------------------------------
+          utile           |        sais pas             |          inutile
+-----------------------------------------------------------------------------------
+  belongs_to_collection   |  original_language          |   id
+  budget                  |  original_title             |   imdb_id
+  genres                  |  status                     |   overview
+  popularity              |  title                      |   
+  production_companies    |                             |   
+  production_countries    |  homepage (existence ?)     |   
+  release_date            |  poster_path (existence ?)  |
+  runtime                 |  tagline (existence ?)      |
+  spoken_languages        |                             |
+  keywords                |                             |
+  cast                    |                             |
+  crew                    |                             |
+-----------------------------------------------------------------------------------
 
 but deviner : revenue
 
@@ -104,10 +104,59 @@ keywords
 cast
 crew
 
-ESSAYONS DE CONVERTIR CERAINES DONNEES EN DONNEES CHIFFREES (en ajoutant des colonnes)
 
-1 - Commençons par belongs_to_collection
+## ESSAYONS DE CONVERTIR CERAINES DONNEES EN DONNEES CHIFFREES (en ajoutant des colonnes)
 
+
+Ici se trouve la nouvelle BDD dans laquelle toutes les données utiles ont été transformées en nombres :
+
+```{r}
+NewDataTrain <- subset(dataTrain, select = c("budget", "popularity", "runtime", "revenue"))
+```
+
+
+
+
+# 1 - Commençons par "genres"
+# ----------------------------
+
+
+!!! LE CODE QUI SUIT NE DOIT ÊTRE TOURNE QU'UNE SEULE FOIS CAR SINON ON VA AJOUTER TROP DE FOIS LES MÊMES COLONNES !!!
+
+```{r}
+###############Conversion en données chiffrées
+genres_matching_point <- "Comedy|Horror|Action|Drama|Documentary|Science Fiction|Crime|Fantasy|Thriller|Animation|Adventure|Mystery|War|Romance|Music|Family|Western|History|TV Movie|Foreign"    #inspiré du notebook sur internet
+
+#dataTrain$genresName <- str_extract(dataTrain$genres, genres_matching_point)            #le pb c'est qu'on ne garde que le premier genres, parfois classé par ordre alphabétique ??
+genresName <- str_extract_all(dataTrain$genres, genres_matching_point, simplify = TRUE)        #c'est pour ça que je l'ai changé en extract all, et la ca fait ce que je veux ie : une matrice qui a pour lignes chaque film (3000) donne le vecteur de tous les genres auquel il appartient
+
+#creation d'une "dummy matrix" (une matrice avec des 1 sile film (ligne) appartient au genre (colonne), 0 sinon)
+#étant donné qu'il y a 20 genres on va renvoyer une matrice avec 20 colonnes (une pour chaque genre) et 3000 lignes
+dummyMatrixGenres <- matrix(0, ncol = 20, nrow = 3000)
+genres_matching_point <- strsplit(genres_matching_point, "|", fixed= TRUE)
+for (i in 1:length(genres_matching_point[[1]])) {
+  for (j in (1:length(dataTrain$id))) {
+    if (genres_matching_point[[1]][i] %in% genresName[j,]){
+      dummyMatrixGenres[j,i] <- 1
+    }
+  }
+}
+
+#on va injecter cette dummy matrice dans notre data frame (et on met les bons noms de colonne)
+GenresDataFrame <- as.data.frame(dummyMatrixGenres)
+colnames(GenresDataFrame) = genres_matching_point[[1]]
+NewDataTrain <- data.frame(NewDataTrain, GenresDataFrame)
+#head(NewDataTrain)
+```
+
+
+
+# 2 - Continuons avec belongs_to_collection
+# -----------------------------------------
+
+
+Je laisse ça là, le problème de cette fonction c'est qu'on crée trop de colonnes je pense (410 !!!)
+Je pensais donc sélectionner peut-être les meilleurs collections et ajouter une colonne pour savoir si le film appartient à une collection (ou faire une colonne autre...)
 ```{r}
 ###############Conversion en données chiffrées
 dataTrain$collectionName <- str_extract(dataTrain$belongs_to_collection, 
@@ -118,77 +167,93 @@ dim(dataTrain[1:3000,] %>%
    group_by(collectionName) %>%
    summarise(movie_count = n()) %>%
    arrange(desc(movie_count)) %>%
-   filter(!is.na(collectionName)))    #ne sert qu'a voir si on a bien e bon nombre de colonnes
+   filter(!is.na(collectionName)))    #ne sert qu'a voir si on a bien le bon nombre de colonnes
 
 #creation of a dummy matrix
-res <- dummy(dataTrain$collectionName, sep=".")   #création de la matrice dummy (un colonne par collection on met 1 si le film appartient à cette collection, 0 sinon)
-dim(res)                                          #on a une matrice avec un colonne de trop
-colnames(res)[ncol(res)]                          #la dernière colonne c'est NA, donc c'est pas grave/elle est inutile, on la virera en temps voulu!!
+dummy_matrice_collection <- dummy(dataTrain$collectionName, sep=".")   #création de la matrice dummy (un colonne par collection on met 1 si le film appartient à cette collection, 0 sinon)
+dim(dummy_matrice_collection)                                          #on a une matrice avec un colonne de trop
+colnames(dummy_matrice_collection)[ncol(dummy_matrice_collection)]                          #la dernière colonne c'est NA
 ```
 
-2 - Faisons ensuite "genres"
+On va donc profiter de la cellule précédente pour voir les collections les plus importatantes (en terme de nombre de films)
+
+```{r}
+print(sort(colSums(dummy_matrice_collection), decreasing = TRUE)[1:16])    #ne sert qu'a voir si on a bien e bon nombre de colonnes
+print(sort(colSums(dummy_matrice_collection))[295:296])                   #il y a 295 collections composées avec un seul film... c'est quoi le principe ???
+                                                                          #faut-il les considérer comme les NA? -> ce qui nous rammènerai à 410-295 = 115 colonnes...
+```
+
+!!! il y a 295 collections composées avec un seul film... c'est quoi le principe ???
+faut-il les considérer comme les NA? -> ce qui nous rammènerai à 410-295 = 115 colonnes...
+Bon ça descend très vite peut-être que les collections les plus importantes à considérer ce sont celles qui rapportent le plus d'argent...!!!
+
+# ######################################################
+# !!!! Cette partie est momentanément mise en pause !!!!
+# ######################################################
+
+
+
+
+# 3 - Occupons nous rapidement de status
+# --------------------------------------
+
+Alors status a 2 valeurs possibles : RUMORED (il y en a 3) et RELEASED
 
 ```{r}
 ###############Conversion en données chiffrées
-genres_matching_point <- "Comedy|Horror|Action|Drama|Documentary|Science Fiction|       #inspiré du notbook sur internet
-              Crime|Fantasy|Thriller|Animation|Adventure|Mystery|War|Romance|Music|
-              Family|Western|History|TV Movie|Foreign"
-
-#dataTrain$genresName <- str_extract(dataTrain$genres, genres_matching_point)            #le pb c'est qu'on ne garde que le premier genres, parfois classé par ordre alphabétique ??
-dataTrain$genresName <- str_extract_all(dataTrain$genres, genres_matching_point)        #c'est pour ça que je l'ai changé en extract all, et la ca fait ce que je veux
-head(dataTrain$genresName)
-
-
-sum(is.na(dataTrain$genresName))
-
 #creation of a dummy matrix
-res <- dummy(dataTrain$genresName, sep=".")   #création de la matrice dummy (un colonne par collection on met 1 si le film appartient à cette collection, 0 sinon)
-dim(res)                                          #on a une matrice avec un colonne de trop
-head(res)
-colnames(res)[ncol(res)]                          #la dernière colonne c'est NA, donc c'est pas grave/elle est inutile, on la virera en temps voulu!!
+dummy_matrice_status <- dummy(dataTrain$status, sep = ".")
+dim(dummy_matrice_status)                                          #on a une matrice avec un colonne de trop
+head(dummy_matrice_status)
+
+#on va injecter cette dummy matrice dans notre data frame (et on met les bons noms de colonne)
+StatusDataFrame <- as.data.frame(dummy_matrice_status)
+#colnames(StatusDataFrame) = genres_matching_point[[1]]
+NewDataTrain <- data.frame(NewDataTrain, StatusDataFrame)
+head(NewDataTrain)
 ```
 
+
+# 4 - Intéressons nous aux production countries
+# ---------------------------------------------
+
+Comme pour genres il y a parfois plusieurs pays pour un même film...
+
 ```{r}
-###############Conversion en données chiffrées
-genres_matching_point <- "Comedy|Horror|Action|Drama|Documentary|Science Fiction|Crime|Fantasy|Thriller|Animation|Adventure|Mystery|War|Romance|Music|Family|Western|History|TV Movie|Foreign"                 #inspiré du notbook sur internet
+#Cette ligne sert juste à justifier la ligne d'après 
+#str_extract(string = dataTrain$production_countries, 
+#                                      pattern = "[:upper:]{2}") == str_extract(string = dataTrain$production_countries, 
+#                                      pattern = "[:upper:]+") #inspiré du notebook, sert surtout à avoir une colonne plus jolie
 
-#dataTrain$genresName <- str_extract(dataTrain$genres, genres_matching_point)            #le pb c'est qu'on ne garde que le premier genres, parfois classé par ordre alphabétique ??
-dataTrain$genresName <- str_extract_all(dataTrain$genres, genres_matching_point, simplify = TRUE)        #c'est pour ça que je l'ai changé en extract all, et la ca fait ce que je veux
-head(dataTrain$genresName)
-
-
-#sum(is.na(dataTrain$genresName))
-#typeof(dataTrain$genresName[2])
-#length(dataTrain$genresName[1])
-#length(dataTrain$genresName[2])
-#length(dataTrain$genresName[3])
-#dataTrain$genresName[1,]
-#"Drama" %in% dataTrain$genresName[1,]
-dataTrain$genresName[2,]
-"Drama" %in% dataTrain$genresName[2,]
-#dataTrain$genresName[3,]
-#"Drama" %in% dataTrain$genresName[3,]
+ProductionCountry <- str_extract_all(string = dataTrain$production_countries, 
+                                      pattern = "[:upper:]{2}") #inspiré du notebook, sert surtout à avoir une colonne plus jolie
 
 
-#creation of a dummy matrix
-test <- matrix(0, ncol = 20, nrow = 3000)
+
+#creation d'une "dummy matrix" (une matrice avec des 1 sile film (ligne) appartient au genre (colonne), 0 sinon)
+#étant donné qu'il y a 20 genres on va renvoyer une matrice avec 20 colonnes (une pour chaque genre) et 3000 lignes
+dummyMatrixProdCountry <- matrix(0, ncol = 20, nrow = 3000)
 genres_matching_point <- strsplit(genres_matching_point, "|", fixed= TRUE)
-for (i in 1:length(genres_matching_point)) {
-  print(genres_matching_point[i])
-  partial_column <- vector("numeric", length(dataTrain$id))
+for (i in 1:length(genres_matching_point[[1]])) {
   for (j in (1:length(dataTrain$id))) {
-    if (genres_matching_point[i] %in% dataTrain$genresName[j,]) {
-      partial_column[,j] <- 1
+    if (genres_matching_point[[1]][i] %in% genresName[j,]){
+      dummyMatrixGenres[j,i] <- 1
     }
   }
-  test[i] <- partial_column
 }
 
-head(test)
-#res <- dummy(dataTrain$genresName, sep=".")   #création de la matrice dummy (un colonne par collection on met 1 si le film appartient à cette collection, 0 sinon)
-#dim(res)                                          #on a une matrice avec un colonne de trop
-#head(res)
-#colnames(res)[ncol(res)]                          #la dernière colonne c'est NA, donc c'est pas grave/elle est inutile, on la virera en temps voulu!!
+#on va injecter cette dummy matrice dans notre data frame (et on met les bons noms de colonne)
+GenresDataFrame <- as.data.frame(dummyMatrixGenres)
+colnames(GenresDataFrame) = genres_matching_point[[1]]
+NewDataTrain <- data.frame(NewDataTrain, GenresDataFrame)
+#head(NewDataTrain)
+```
+
+
+```{r}
+sum(grepl("Comedy", genresName[1,]))
+"Comedy" %in% genresName[1,]
+matrix(0, ncol =2, nrow = 4)
 ```
 
 ** Partie II : Test avec une régression linéaire
