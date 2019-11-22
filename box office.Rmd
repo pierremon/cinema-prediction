@@ -260,6 +260,27 @@ for (i in 1:3000){
 NewDataTrain <- data.frame(NewDataTrain, dummyMatrixHomepages)
 ```
 
+# 6 - Traitons la langue originale du film
+# ---------------------------------------------
+
+
+```{r}
+#Une seule langue originale par film. 36 langues différentes. On crée 36 colonnes, et pour chaque ligne (i.e film), on a un 1 dans la colonne correspondant à sa langue originale.
+
+dummyMatrixLO <- matrix(0,ncol=36,nrow=3000)
+tableLO=names(table(dataTrain$original_language))
+
+for (i in 1:36) {
+  for (j in (1:3000)) {
+    if (tableLO[i] %in% dataTrain$original_language[j]){
+      dummyMatrixLO[j,i] <- 1
+    }
+  }
+}
+
+#Puis on injecte:
+NewDataTrain <- data.frame(NewDataTrain, dummyMatrixLO)
+```
 ** Partie II : Test avec une régression linéaire
 
 ** Partie III :
