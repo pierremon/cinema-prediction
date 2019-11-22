@@ -256,6 +256,23 @@ sum(grepl("Comedy", genresName[1,]))
 matrix(0, ncol =2, nrow = 4)
 ```
 
+# 5 - Intéressons nous à la présence ou non de page internet pour le film
+# ---------------------------------------------
+
+#Dans homepages, on va mettre 1 si y'en a une, 0 si y'en a pas en gros.
+
+dummyMatrixHomepages <- matrix(0,ncol=1,nrow=3000)
+
+for (i in 1:3000){
+  
+  if (dataTrain$homepage[i]!=''){
+   dummyMatrixHomepages[i,1]=1 
+  }
+}
+
+NewDataTrain <- data.frame(NewDataTrain, dummyMatrixHomepages)
+
+
 ** Partie II : Test avec une régression linéaire
 
 ** Partie III :
