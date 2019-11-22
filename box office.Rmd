@@ -212,53 +212,40 @@ StatusDataFrame <- as.data.frame(dummy_matrice_status)
 NewDataTrain <- data.frame(NewDataTrain, StatusDataFrame)
 head(NewDataTrain)
 ```
-
-
 # 4 - Intéressons nous aux production countries
 # ---------------------------------------------
 
 Comme pour genres il y a parfois plusieurs pays pour un même film...
 
 ```{r}
-#Cette ligne sert juste à justifier la ligne d'après 
-#str_extract(string = dataTrain$production_countries, 
-#                                      pattern = "[:upper:]{2}") == str_extract(string = dataTrain$production_countries, 
-#                                      pattern = "[:upper:]+") #inspiré du notebook, sert surtout à avoir une colonne plus jolie
-
 ProductionCountry <- str_extract_all(string = dataTrain$production_countries, 
-                                      pattern = "[:upper:]{2}") #inspiré du notebook, sert surtout à avoir une colonne plus jolie
+                                      pattern = "[:upper:]{2}", simplify = TRUE) #inspiré du notebook, sert surtout à avoir une colonne plus jolie
+
+tableProductionCountry <- names(table(ProductionCountry, exclude = c("", "NA", NA)))
+ncolumn = length(tableProductionCountry)
+
+dummyMatrixProdCountry <- matrix(0, ncol = ncolumn, nrow = 3000)
 
 
-
-#creation d'une "dummy matrix" (une matrice avec des 1 sile film (ligne) appartient au genre (colonne), 0 sinon)
-#étant donné qu'il y a 20 genres on va renvoyer une matrice avec 20 colonnes (une pour chaque genre) et 3000 lignes
-dummyMatrixProdCountry <- matrix(0, ncol = 20, nrow = 3000)
-genres_matching_point <- strsplit(genres_matching_point, "|", fixed= TRUE)
-for (i in 1:length(genres_matching_point[[1]])) {
+for (i in 1:length(tableProductionCountry)) {
   for (j in (1:length(dataTrain$id))) {
-    if (genres_matching_point[[1]][i] %in% genresName[j,]){
-      dummyMatrixGenres[j,i] <- 1
+    if (tableProductionCountry[i] %in% ProductionCountry[j,]){
+      dummyMatrixProdCountry[j,i] <- 1
     }
   }
 }
 
 #on va injecter cette dummy matrice dans notre data frame (et on met les bons noms de colonne)
-GenresDataFrame <- as.data.frame(dummyMatrixGenres)
-colnames(GenresDataFrame) = genres_matching_point[[1]]
-NewDataTrain <- data.frame(NewDataTrain, GenresDataFrame)
-#head(NewDataTrain)
+ProdCountryDataFrame <- as.data.frame(dummyMatrixProdCountry)
+colnames(ProdCountryDataFrame) = tableProductionCountry
+NewDataTrain <- data.frame(NewDataTrain, ProdCountryDataFrame)
 ```
 
-
-```{r}
-sum(grepl("Comedy", genresName[1,]))
-"Comedy" %in% genresName[1,]
-matrix(0, ncol =2, nrow = 4)
-```
 
 # 5 - Intéressons nous à la présence ou non de page internet pour le film
 # ---------------------------------------------
 
+```{r}
 #Dans homepages, on va mettre 1 si y'en a une, 0 si y'en a pas en gros.
 
 dummyMatrixHomepages <- matrix(0,ncol=1,nrow=3000)
@@ -271,7 +258,7 @@ for (i in 1:3000){
 }
 
 NewDataTrain <- data.frame(NewDataTrain, dummyMatrixHomepages)
-
+```
 
 ** Partie II : Test avec une régression linéaire
 
