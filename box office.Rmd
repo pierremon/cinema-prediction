@@ -432,8 +432,68 @@ Méthodes d’apprentissage statistique
     time series (exponential smoothing, SARIMA)
     online expert aggregation
 
+# 11 - Estimation par Lasso (début)
+# ------------------------
+```{r}
+dataTrain <- read_csv("C:/Users/mathi/Desktop/Projet ML/tmdb-box-office-prediction/train.csv",col_names = TRUE)
 
 
+#On fait avec budget, popularité, runtime (et revenu of course)
+
+DATATRAIN1 <- subset(dataTrain, select = c("budget", "popularity", "runtime", "revenue"))
+
+
+#Let TRAIN be the "cleaned" array
+
+x_var=model.matrix(revenue~. , DATATRAIN1)[,-1]
+y_var=DATATRAIN1$revenue
+
+#Now, we try a Lasso estimation here.
+  
+lambda_seq <- 10^seq(3, -5, by = -.1)
+
+# Splitting the data into test and train
+
+train = sample(1:nrow(x_var), nrow(x_var)/2)
+x_test = (-train)
+y_test = y_var[x_test]
+cv_output <- cv.glmnet(x_var[train,], y_var[train], 
+                       alpha = 1, lambda = lambda_seq)
+
+# identifying best lamda
+best_lam <- cv_output$lambda.min
+
+#Lasso avec ce lambda optimal
+
+lasso_best <- glmnet(x_vars[train,], y_var[train], alpha = 1, lambda = best_lam)
+pred <- predict(lasso_best, s = best_lam, newx = x_vars[test,])
+
+final <- cbind(y_var[test], pred)
+
+
+###EN FAISANT COMPTER LES COLLECTIONS POUR PLUS DE VARIABLES
+NewDataTrain <- subset(dataTrain, select = c("budget", "popularity", "runtime", "revenue"))
+
+###############Conversion en données chiffrées
+dataTrain$collectionName <- str_extract(dataTrain$belongs_to_collection, 
+                                        pattern = "(?<=name\\'\\:\\s{1}\\').+(?=\\'\\,\\s{1}\\'poster)")  #inspiré du notebook, sert surtout à avoir une colonne plus jolie
+head(dataTrain$collectionName)
+sum(!is.na(dataTrain$collectionName))
+dim(dataTrain[1:3000,] %>%
+      group_by(collectionName) %>%
+      summarise(movie_count = n()) %>%
+      arrange(desc(movie_count)) %>%
+      filter(!is.na(collectionName)))    #ne sert qu'a voir si on a bien le bon nombre de colonnes
+#creation of a dummy matrix
+dummy_matrice_collection <- dummy(dataTrain$collectionName, sep=".")   #création de la matrice dummy (un colonne par collection on met 1 si le film appartient à cette collection, 0 sinon)
+dim(dummy_matrice_collection)                                          #on a une matrice avec un colonne de trop
+colnames(dummy_matrice_collection)[ncol(dummy_matrice_collection)] 
+
+NewDataTrain <- data.frame(NewDataTrain,dummy_matrice_collection)
+
+
+DATATRAIN2 <- subset(NewDataTrain, select = c("budget", "popularity", "runtime", "revenue"))
+'''
 
 
 
