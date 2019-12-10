@@ -671,3 +671,27 @@ rsq
 
 Rien qu'avec dudget popularité et durée du film on tombe sur du R au carré de 0.9 !!!
 
+# 15 - Principal Component Analysis
+# ------------------------
+
+```{r}
+
+#DATATRAIN1 <- NewDataTrain
+
+res.pca <- PCA(DATATRAIN1, graph = FALSE)
+
+
+
+
+eig.val <- res.pca$eig
+barplot(eig.val[, 2], 
+        names.arg = 1:nrow(eig.val), 
+        main = "Variances Explained by PCs (%)",
+        xlab = "Principal Components",
+        ylab = "Percentage of variances",
+        col ="steelblue")
+# Add connected line segments to the plot
+lines(x = 1:nrow(eig.val), eig.val[, 2], 
+      type = "b", pch = 19, col = "red")
+      ```
+ça nous sort le graphe des valeurs propres dans l'ordre décroissant, permet de visualiser pour une réduction de la dimension.
