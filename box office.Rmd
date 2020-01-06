@@ -569,6 +569,8 @@ Méthodes d’apprentissage statistique
     gradient boosting
     time series (exponential smoothing, SARIMA)
     online expert aggregation
+    
+   
 
 
 # 15 - Estimation par Lasso (début)
@@ -625,12 +627,136 @@ rsq <- rss/tss
 rsq
 '''
 Tests: Avec juste budget, popularité et longueur, on obtient R^2 = 0.13.
-En rajoutant les production countries, on passe à 0.14.
-
-# 15 - Estimation par forêts aléatoires (début)
-# ------------------------
+En rajoutant les production countries, on passe à 0.14. 
 
 
+#       ########################################
+#       #  Partie II : Sélection de variables   #
+#       ########################################
+
+
+1 - Avec le Lasso
+============================================================
+
+```{r}
+#DATATRAIN1=ce sur quoi on s'entraine, revenus+ d'autres variables en gros
+
+x=model.matrix(revenue~. , DATATRAIN1)[,-1]  
+#x=append(DATATRAIN1[0:3],DATATRAIN1[5:length(DATATRAIN1)])
+y=DATATRAIN1$revenue
+
+x_train=x[1:2499,]
+y_train=y[1:2499]
+
+
+
+x_test=x[2500:2998,]
+y_test=y[2500:2998]
+
+
+#x_train=x[1:2998,]
+#y_train=y[1:2998]
+
+
+lasso_model_cv=cv.glmnet(x_train,y_train,alpha=1)
+plot(lasso_model_cv)
+
+#on récup le meilleur lambda
+numero_du_best_model=which(lasso_model_cv$lambda==lasso_model_cv$lambda.min)
+Lasso=lasso_model_cv$glmnet.fit$beta[,numero_du_best_model]
+
+#certains coef valent 0, on a sélection de variable !
+print (log(numero_du_best_model))
+coef(Lasso,s=numero_du_best_model)
+
+#lasso_best <- glmnet(x_train, y_train, alpha = 1, lambda = numero_du_best_model)
+#pred <- predict(lasso_best, s = numero_du_best_model, newx =x_test)
+
+
+#Sélection des variables :
+
+newlasso=c()
+varsel=c()
+n=0
+
+for (i in Lasso) {
+  if(i==0.) {
+    varsel <- append(varsel,c(0))
+  }
+  
+ 
+  else{
+    newlasso <- append(newlasso,c(i))
+    varsel<-append(varsel,c(1))
+    n<-n+1
+  }
+ 
+}
+print(n)
+#n sera le nombre variables désormais
+#varsel ensemble des varaibles sélectionnées
+
+#Maintenant on crée les données avec que les variables "importantes":
+k=1
+for (i in varsel) {
+  if(i==0){
+    x<-x[,-k]
+    k<-k-1
+  }
+  k<-k+1
+}
+
+#On voudrait ensuite créer le nouveau DATATRAIN1 en concaténant x avec  y. 
+
+z<-cbind(x,y[0:2998])
+colnames(z)[n+1]<-"revenue" #pour renommer bien.
+
+DATATRAIN1<-z
+x_var<-x
+y_var<-y
+```
+2 - Avec une PCA
+============================================================
+```{r}
+res.pca <- PCA(DATATRAIN1, graph = FALSE)
+
+
+
+
+eig.val <- res.pca$eig
+barplot(eig.val[, 2], 
+        names.arg = 1:nrow(eig.val), 
+        main = "Variances Explained by PCs (%)",
+        xlab = "Principal Components",
+        ylab = "Percentage of variances",
+        col ="steelblue")
+# Add connected line segments to the plot
+lines(x = 1:nrow(eig.val), eig.val[, 2], 
+      type = "b", pch = 19, col = "red")
+
+#attention cette commande fait bugger l'ordi
+#plot(res.pca, choix = "ind", autoLab = "yes")
+
+#sélectionnons les variables qui 
+
+#Pourcentage de variance expliqué par les k premières valeurs propres
+k<-20
+eig.val[k,3]
+
+#Nombre de valeurs propres qui comptent les 95% de la variance:
+percent<-95
+k<-1
+while (eig.val[k,3]<percent) {
+  k<-k+1
+}
+print(k)
+```
+
+J'ai pas encore réussi à faire la sélection de variable sous PCA, je sais pas trop comment m'y prendre de manière vraiment efficace...
+
+
+
+Petit code pour random forests, un peu out of date:
 ```{r}
 dataTrain <- read_csv("C:/Users/mathi/Desktop/Projet ML/tmdb-box-office-prediction/train.csv",col_names = TRUE)
 
