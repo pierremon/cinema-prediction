@@ -1,0 +1,204 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+###############Initialisation 
+rm(list=objects())
+###############packages
+library(dygraphs)
+library(xts)
+library(tidyverse)
+library(car)
+library(dummies)
+dataTrain <- read_delim("/media/matthieu/disque dur Matthieu/Matthieu/Mes Documents/R/Projet M2 StatML/tmdb-box-office-prediction/train.csv", col_names =TRUE, delim=',')
+#dataTest <- read_delim("//mnt/chromeos/MyFiles/Mes Documents/Projet StatML/test.csv", col_names =TRUE, delim=',')
+summary(dataTrain)
+```
+
+# ##########################
+# I - 3 catégories de BDDS #
+# ##########################
+
+
+
+# 1. Catégorie 1
+# --------------
+
+```{r}
+DataCat1 <- subset(dataTrain, select = c("budget", "popularity", "runtime", "revenue"))
+DataCat2 <- subset(dataTrain, select = c("revenue"))
+```
+
+
+
+
+# 2. Catégorie 2
+# --------------
+
+```{r}
+###############Conversion en données chiffrées
+genres_matching_point <- "Comedy|Horror|Action|Drama|Documentary|Science Fiction|Crime|Fantasy|Thriller|Animation|Adventure|Mystery|War|Romance|Music|Family|Western|History|TV Movie|Foreign"    #inspiré du notebook sur internet
+#dataTrain$genresName <- str_extract(dataTrain$genres, genres_matching_point)            #le pb c'est qu'on ne garde que le premier genres, parfois classé par ordre alphabétique ??
+genresName <- str_extract_all(dataTrain$genres, genres_matching_point, simplify = TRUE)        #c'est pour ça que je l'ai changé en extract all, et la ca fait ce que je veux ie : une matrice qui a pour lignes chaque film (3000) donne le vecteur de tous les genres auquel il appartient
+#creation d'une "dummy matrix" (une matrice avec des 1 sile film (ligne) appartient au genre (colonne), 0 sinon)
+#étant donné qu'il y a 20 genres on va renvoyer une matrice avec 20 colonnes (une pour chaque genre) et 3000 lignes
+dummyMatrixGenres <- matrix(0, ncol = 20, nrow = 3000)
+genres_matching_point <- strsplit(genres_matching_point, "|", fixed= TRUE)
+for (i in 1:length(genres_matching_point[[1]])) {
+  for (j in (1:length(dataTrain$id))) {
+    if (genres_matching_point[[1]][i] %in% genresName[j,]){
+      dummyMatrixGenres[j,i] <- 1
+    }
+  }
+}
+#on va injecter cette dummy matrice dans notre data frame (et on met les bons noms de colonne)
+GenresDataFrame <- as.data.frame(dummyMatrixGenres)
+colnames(GenresDataFrame) = genres_matching_point[[1]]
+DataCat2 <- data.frame(DataCat2, GenresDataFrame)
+```
+
+```{r}
+ProductionCountry <- str_extract_all(string = dataTrain$production_countries, 
+                                      pattern = "[:upper:]{2}", simplify = TRUE) #inspiré du notebook, sert surtout à avoir une colonne plus jolie
+tableProductionCountry <- names(table(ProductionCountry, exclude = c("", "NA", NA)))
+ncolumn = length(tableProductionCountry)
+dummyMatrixProdCountry <- matrix(0, ncol = ncolumn, nrow = 3000)
+for (i in 1:length(tableProductionCountry)) {
+  for (j in (1:length(dataTrain$id))) {
+    if (tableProductionCountry[i] %in% ProductionCountry[j,]){
+      dummyMatrixProdCountry[j,i] <- 1
+    }
+  }
+}
+#on va injecter cette dummy matrice dans notre data frame (et on met les bons noms de colonne)
+ProdCountryDataFrame <- as.data.frame(dummyMatrixProdCountry)
+colnames(ProdCountryDataFrame) = tableProductionCountry
+DataCat2 <- data.frame(DataCat2, ProdCountryDataFrame)
+```
+
+```{r}
+#Dans homepages, on va mettre 1 si y'en a une, 0 si y'en a pas en gros.
+dummyMatrixHomepages <- matrix(1,ncol=1,nrow=3000)
+for (i in 1:3000){
+  if (is.na(dataTrain$homepage[i])){
+   dummyMatrixHomepages[i,1]=0 
+  }
+}
+DataCat2 <- data.frame(DataCat2, dummyMatrixHomepages)
+```
+
+```{r}
+#Une seule langue originale par film. 36 langues différentes. On crée 36 colonnes, et pour chaque ligne (i.e film), on a un 1 dans la colonne correspondant à sa langue originale.
+dummyMatrixLO <- matrix(0,ncol=36,nrow=3000)
+tableLO=names(table(dataTrain$original_language))
+for (i in 1:36) {
+  for (j in (1:3000)) {
+    if (tableLO[i] %in% dataTrain$original_language[j]){
+      dummyMatrixLO[j,i] <- 1
+    }
+  }
+}
+#Puis on injecte:
+DataCat2 <- data.frame(DataCat2, dummyMatrixLO)
+```
+
+```{r}
+DataCat2 <- subset(dataTrain, select = c("budget", "popularity", "runtime", "revenue"))
+```
+
+Il y a quelques colonnes que je ne prends pas en compte dans cat 2 :
+
+belongs_to_collection : nom de la série dans laquelle s'inscrit le film (ex : James Bond), vide s'il n'y a rien
+production_companies : (parfois vide)
+release_date : date de sortie
+keywords
+cast : (acteurs + roles...)
+crew : (réals...)
+
+
+
+
+# ##########################################
+# II - Divisons en data train et data test #
+# ##########################################
+
+```{r}
+TrainCat1 <- DataCat1[1:2500,]
+TestCat1 <- DataCat1[2501:3000,]
+
+TrainCat2 <- DataCat2[1:2500,]
+TestCat2 <- DataCat1[2501:3000,]
+```
+
+
+
+
+
+# ################################################
+# III - Maintenant commençons vraiment les algos #
+# ################################################
+
+
+
+# 1. XGBoost
+# ----------
+
+Commençons par appeler les bibliothèques
+```{r}
+library(xgboost)
+library(caret)
+```
+
+
+Maintenant il s'agit de mettre la BDD dans le bon format.
+
+```{r}
+#on enlève revenue des BDDs
+X_train = xgb.DMatrix(as.matrix(TrainCat2 %>% select(-revenue)))
+y_train = TrainCat2$revenue
+X_test = xgb.DMatrix(as.matrix(TestCat2 %>% select(-revenue)))
+y_test = TestCat2$revenue
+```
+
+```{r}
+xgb_trcontrol = trainControl(method = "cv", number = 5, allowParallel = TRUE, 
+    verboseIter = FALSE, returnData = FALSE)
+xgbGrid <- expand.grid(nrounds = c(100,200),  
+                       max_depth = c(3, 5, 10, 15, 20),
+                       colsample_bytree = seq(0.5, 0.9, length.out = 5),
+                       ## valeurs par défaut : 
+                       eta = 0.1,
+                       gamma=0,
+                       min_child_weight = 1,
+                       subsample = 1
+                      )
+
+set.seed(0)   #est-ce vraiment utile ??
+xgb_model = train(X_train, y_train, trControl = xgb_trcontrol, tuneGrid = xgbGrid, 
+    method = "xgbTree")
+```
+
+
+Regardons les résultats :
+```{r}
+xgb_model$bestTune
+```
+
+```{r}
+predicted = predict(xgb_model, X_test)
+residuals = y_test - predicted
+RMSE = sqrt(mean(residuals^2))
+
+y_test_mean = mean(y_test)
+tss = sum((y_test - y_test_mean)^2)
+rss = sum(residuals^2)
+rsq = 1 - (rss/tss)
+
+print(RMSE)
+print(rsq)
+```
+
+
