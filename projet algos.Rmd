@@ -138,9 +138,71 @@ TestCat2 <- DataCat1[2501:3000,]
 
 
 # ################################################
-# III - Maintenant commençons vraiment les algos #
+# III - Maintenant commençons vraiment les algos : Catégorie 1 #
 # ################################################
 
+On dispose donc ici des variables durée, popularité et budget du film, pour prédire son revenu. On effectue pour cela des modèles additifs:
+
+```{r}
+
+train<-DataCat2[1:2500,]
+
+
+g<-gam(revenue~s(budget)+s(popularity)+s(runtime),data = train)
+summary(g) 
+```
+funfact: quand on regarde les degrés de liberté, c'est 8, 9 et 3.5. Donc plus linéaire en runtime qu'en budget (marrant).
+
+```{r}
+test<-DataCat2[2500:3000,]
+
+pred<-predict(g,newdata = test)
+actual=dataTrainGros$revenue[2500:3000]
+
+#R au carré:
+rss <- sum((pred - mean(actual)) ^ 2)
+tss <- sum((actual - pred) ^ 2)
+rsq <- rss/(rss+tss)
+rsq 
+```
+On obtient en gros 0.60-0.65 pour le R-carré. 
+
+Ensuite qqs plots:
+
+prédictions et vraies valeurs en fonction du budget:
+```{r}
+
+Budget<-test$budget
+Revenue<-actual
+y2<-pred
+plot(Budget,Revenue,type="p")
+points(Budget,y2,col=2)
+legend("topleft", legend=c("Training values", "Testing values"),
+       col=c("black", "red"), lty=1:2, cex=0.8, pch=c("o","o"))
+```
+en fonction de la popularité:
+```{r}
+
+popu<-test$popularity
+Revenue<-actual
+y2<-pred
+plot(popu,Revenue,type="p")
+points(popu,y2,col=2)
+legend("topleft", legend=c("Training values", "Testing values"),
+       col=c("black", "red"), lty=1:2, cex=0.8, pch=c("o","o"))
+```
+C'est un petit peu mions joli qu'en fonction du budget (a l'air moins linéaire quoi)
+
+prédictions en fonction des vraies valeurs, c'est pas une ligne droite, mais ça a un peu de gueule je trouve:
+```{r}
+plot(actual,pred)
+```
+
+
+
+# ################################################
+# III - Les algos : Catégirie 2 #
+# ################################################
 
 
 # 1. XGBoost
