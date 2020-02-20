@@ -201,7 +201,7 @@ plot(actual,pred)
 
 
 # ################################################
-# III - Les algos : Catégirie 2 #
+# IV - Les algos : Catégorie 2 #
 # ################################################
 
 
@@ -262,5 +262,80 @@ rsq = 1 - (rss/tss)
 print(RMSE)
 print(rsq)
 ```
+
+# ################################################
+# V - Les algos : Catégorie 3 #
+# ################################################
+
+On dispose de tout sauf les 2 autres catégories, et on veut prédire l'erreur comise à la suite du traitement des 2 précédentes catégories.
+Appelons Error3 cette erreur à prédire. 
+
+```{r}
+Error3<-
+```
+On va faire sélection de variables grâce au Lasso, puis appliquer les algos de la catégorie 2 (forêts et gradient boosting).
+
+```{r}
+train<-DataCat3[0:2500,]
+test<-DataCat3[2501:3000,]
+
+x_train=as.matrix(train[0:2500,][1000:89375])
+y_train=as.matrix(Error3[0:2500])
+```
+
+```{r}
+lasso_model_cv=cv.glmnet(x_train,y_train,alpha=1)
+plot(lasso_model_cv)
+```
+Ce dernier plot montre la RMSE et le nombre de variables sélectionnées en fonction du lambda (pas mal comme plot).
+En général le meilleur lambda sélectionne dans les 600 variables parmi 89k, et vaut dans les 10^4. On le sélectionne:
+
+```{r}
+numero_du_best_model=which(lasso_model_cv$lambda==lasso_model_cv$lambda.min)
+Lasso=lasso_model_cv$glmnet.fit$beta[,numero_du_best_model]
+print (log(numero_du_best_model))
+```
+
+Sélection des variables: il ne nous reste plus qu'à retraiter les données:
+```{r}
+newlasso=c()
+varsel=c() #listes vides à remplir, newlasso n'aura que les variables sélectionnées, et varsel coderal ces variables sélectionnées
+n=0 #sera le nb de variables sélectionnées
+
+for (i in Lasso) {
+  if(i==0.) {   #si la variable n'est pas sélectionnée, on met 0 dans varsel
+    varsel <- append(varsel,c(0))
+  }
+  
+  else{ #si variable sélectionnée, on met 1 dans varsel
+    newlasso <- append(newlasso,c(i))
+    varsel<-append(varsel,c(1))
+    n<-n+1
+  }
+}
+print(n) #le nb de variables sélectionnées
+```{r}
+
+Maintenant on crée les données avec que les variables "importantes":
+```{r}
+k=1
+var=as.list(Lasso)
+for (i in varsel) {
+  if(i==0){
+    var<-var[-k]  #en gros on supprime de Lasso les variables non sélectionnées.
+    k<-k-1
+  }
+  k<-k+1
+  
+}
+
+x<-DataCat3
+x2<-subset(x, select = c(names(var))) #on a pris toutes les variables (pour les 3000 films) sélectionnées
+```
+
+
+Puis juste faire le travail de 2 avec x2 pour prédire Error3.
+
+
 
 
