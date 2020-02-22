@@ -105,9 +105,6 @@ for (i in 1:36) {
 DataCat2 <- data.frame(DataCat2, dummyMatrixLO)
 ```
 
-```{r}
-DataCat2 <- subset(dataTrain, select = c("budget", "popularity", "runtime", "revenue"))
-```
 
 Il y a quelques colonnes que je ne prends pas en compte dans cat 2 :
 
@@ -130,7 +127,7 @@ TrainCat1 <- DataCat1[1:2500,]
 TestCat1 <- DataCat1[2501:3000,]
 
 TrainCat2 <- DataCat2[1:2500,]
-TestCat2 <- DataCat1[2501:3000,]
+TestCat2 <- DataCat2[2501:3000,]
 ```
 
 
